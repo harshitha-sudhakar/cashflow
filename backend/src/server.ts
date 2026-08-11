@@ -1,8 +1,10 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
+import "dotenv/config"
+import { getAllCustomers, createCustomer, createAccount, createBill, getBillsForAccount} from "./services/nessieService.js";
+import {db} from "./config/firebase.js";
 
-dotenv.config();
+
 
 const app = express();
 app.use(cors());
@@ -14,7 +16,6 @@ app.get("/health", (_req, res) => {
 
 const PORT = process.env.PORT ?? 4000;
 
-import { getAllCustomers } from "./services/nessieService.js";
 
 app.get("/api/test-nessie", async (_req, res) => {
   try {
@@ -33,7 +34,6 @@ app.listen(PORT, () => {
 // local server
 
 //TEST CUSTOMER
-import { createCustomer } from "./services/nessieService.js";
 
 app.post("/api/test-nessie/customer", async (_req, res) => {
   try {
@@ -55,7 +55,6 @@ app.post("/api/test-nessie/customer", async (_req, res) => {
 });
 
 //ROUTE ACCOUNT
-import { createAccount } from "./services/nessieService.js";
 
 app.post("/api/test-nessie/account/:customerId", async (req, res) => {
   try {
@@ -72,7 +71,6 @@ app.post("/api/test-nessie/account/:customerId", async (req, res) => {
 });
 
 //BILL ROUTES
-import { createBill, getBillsForAccount } from "./services/nessieService.js";
 
 app.post("/api/test-nessie/bill/:accountId", async (req, res) => {
   try {
@@ -98,3 +96,22 @@ app.get("/api/test-nessie/bills/:accountId", async (req, res) => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+//ADD DB
+
+app.post("/api/test-firestore", async (_req, res) => {
+  try {
+    const ref = await db.collection("obligations").add({
+      userId: "test-user",
+      name: "Test obligation from Nessie bill",
+      amount: 11.99,
+      dueDate: "2026-09-01",
+      status: "upcoming",
+      priority: "fixed",
+    });
+    res.json({ id: ref.id });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
