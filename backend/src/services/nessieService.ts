@@ -47,3 +47,22 @@ export async function createCustomer(customer: NessieCustomerInput) {
   if (!res.ok) throw new Error(`Nessie API error ${res.status} creating customer`);
   return res.json();
 }
+
+//CREATE ACCOUNT
+export interface NessieAccountInput {
+  type: "Credit Card" | "Checking" | "Savings";
+  nickname: string;
+  rewards: number;
+  balance: number;
+}
+
+export async function createAccount(customerId: string, account: NessieAccountInput) {
+  const key = requireApiKey();
+  const res = await fetch(`${NESSIE_BASE_URL}/customers/${customerId}/accounts?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(account),
+  });
+  if (!res.ok) throw new Error(`Nessie API error ${res.status} creating account`);
+  return res.json();
+}

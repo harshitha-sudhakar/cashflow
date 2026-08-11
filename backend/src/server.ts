@@ -53,3 +53,20 @@ app.post("/api/test-nessie/customer", async (_req, res) => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+//ROUTE ACCOUNT
+import { createAccount } from "./services/nessieService.js";
+
+app.post("/api/test-nessie/account/:customerId", async (req, res) => {
+  try {
+    const account = await createAccount(req.params.customerId, {
+      type: "Checking",
+      nickname: "Main Checking",
+      rewards: 0,
+      balance: 500,
+    });
+    res.json(account);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
