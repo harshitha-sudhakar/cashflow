@@ -70,3 +70,31 @@ app.post("/api/test-nessie/account/:customerId", async (req, res) => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+
+//BILL ROUTES
+import { createBill, getBillsForAccount } from "./services/nessieService.js";
+
+app.post("/api/test-nessie/bill/:accountId", async (req, res) => {
+  try {
+    const bill = await createBill(req.params.accountId, {
+      status: "recurring",
+      payee: "Spotify",
+      nickname: "Monthly subscription",
+      payment_date: "2026-09-01",
+      recurring_date: 1,
+      payment_amount: 11.99,
+    });
+    res.json(bill);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+app.get("/api/test-nessie/bills/:accountId", async (req, res) => {
+  try {
+    const bills = await getBillsForAccount(req.params.accountId);
+    res.json(bills);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});

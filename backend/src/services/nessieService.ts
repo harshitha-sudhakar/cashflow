@@ -66,3 +66,28 @@ export async function createAccount(customerId: string, account: NessieAccountIn
   if (!res.ok) throw new Error(`Nessie API error ${res.status} creating account`);
   return res.json();
 }
+
+// BILLS
+export interface NessieBillInput {
+  status: "pending" | "recurring" | "cancelled";
+  payee: string;
+  nickname: string;
+  payment_date: string; // YYYY-MM-DD
+  recurring_date?: number; // day of month, if recurring
+  payment_amount: number;
+}
+
+export async function createBill(accountId: string, bill: NessieBillInput) {
+  const key = requireApiKey();
+  const res = await fetch(`${NESSIE_BASE_URL}/accounts/${accountId}/bills?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(bill),
+  });
+  if (!res.ok) throw new Error(`Nessie API error ${res.status} creating bill`);
+  return res.json();
+}
+
+export async function getBillsForAccount(accountId: string) {
+  return nessieFetch<any[]>(`/accounts/${accountId}/bills`);
+}
