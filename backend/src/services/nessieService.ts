@@ -23,3 +23,27 @@ export interface NessieCustomer {
 export function getAllCustomers(): Promise<NessieCustomer[]> {
   return nessieFetch<NessieCustomer[]>("/customers");
 }
+
+//TEST CUSTOMER
+export interface NessieCustomerInput {
+  first_name: string;
+  last_name: string;
+  address: {
+    street_number: string;
+    street_name: string;
+    city: string;
+    state: string;
+    zip: string;
+  };
+}
+
+export async function createCustomer(customer: NessieCustomerInput) {
+  const key = requireApiKey();
+  const res = await fetch(`${NESSIE_BASE_URL}/customers?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(customer),
+  });
+  if (!res.ok) throw new Error(`Nessie API error ${res.status} creating customer`);
+  return res.json();
+}

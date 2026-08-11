@@ -31,3 +31,25 @@ app.listen(PORT, () => {
 });
 
 // local server
+
+//TEST CUSTOMER
+import { createCustomer } from "./services/nessieService.js";
+
+app.post("/api/test-nessie/customer", async (_req, res) => {
+  try {
+    const customer = await createCustomer({
+      first_name: "Emily",
+      last_name: "Walker",
+      address: {
+        street_number: "123",
+        street_name: "Main St",
+        city: "College Station",
+        state: "TX",
+        zip: "77840",
+      },
+    });
+    res.json(customer);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
