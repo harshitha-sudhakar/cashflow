@@ -114,4 +114,5 @@ app.post("/api/test-firestore", async (_req, res) => {
     res.status(500).json({ error: (err as Error).message });
   }
 });
+// export FIRESTORE_EMULATOR_HOST="127.0.0.1:8080"
 
