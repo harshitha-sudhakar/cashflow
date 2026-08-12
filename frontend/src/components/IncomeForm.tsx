@@ -2,6 +2,7 @@ import { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../lib/authContext";
+import type { CashFlowCertainty } from "../lib/types";
 
 interface IncomeFormProps {
   onLogged?: () => void;
@@ -11,8 +12,7 @@ export function IncomeForm({ onLogged }: IncomeFormProps) {
   const { user } = useAuth();
   const [source, setSource] = useState("");
   const [amount, setAmount] = useState("");
-  const [status, setStatus] = useState<"confirmed" | "pledged">("confirmed");
-  const [confidence, setConfidence] = useState("0.7");
+  const [certainty, setCertainty] = useState<CashFlowCertainty>("confirmed");
   const [expectedDate, setExpectedDate] = useState("");
   const [category, setCategory] = useState("gig");
   const [recurring, setRecurring] = useState(false);
@@ -31,8 +31,9 @@ export function IncomeForm({ onLogged }: IncomeFormProps) {
         userId: user.uid,
         source,
         amount: parseFloat(amount),
-        status,
-        confidence: status === "confirmed" ? 1 : parseFloat(confidence),
+        status: certainty,
+        certainty,
+        confidence: certainty === "confirmed" ? 1 : certainty === "likely" ? 0.7 : 0.35,
         expectedDate,
         category,
         recurring,
@@ -53,8 +54,7 @@ export function IncomeForm({ onLogged }: IncomeFormProps) {
     <div className="card">
       <h2 className="card-title">Log income</h2>
       <p className="card-subtitle">
-        "Highly likely" is money that's landed or contractually guaranteed. "Likely / speculative" is
-        anything not certain yet — set how confident you are with the slider.
+        Tag the cash as confirmed, likely, or speculative so the forecast can weight it without treating every dollar as guaranteed.
       </p>
 
       {submitted && <div className="success-banner">Logged — check your dashboard.</div>}
@@ -78,18 +78,16 @@ export function IncomeForm({ onLogged }: IncomeFormProps) {
 
         <div className="form-row">
           <label className="form-label">
-            Likelihood
-            <select value={status} onChange={(e) => setStatus(e.target.value as "confirmed" | "pledged")}>
-              <option value="confirmed">Highly likely</option>
-              <option value="pledged">Likely / speculative</option>
+            Certainty
+            <select value={certainty} onChange={(e) => setCertainty(e.target.value as CashFlowCertainty)}>
+              <option value="confirmed">Confirmed</option>
+              <option value="likely">Likely</option>
+              <option value="speculative">Speculative</option>
             </select>
           </label>
-          {status === "pledged" && (
-            <label className="form-label">
-              Confidence ({Math.round(parseFloat(confidence) * 100)}%)
-              <input type="range" min="0.1" max="0.9" step="0.1" value={confidence} onChange={(e) => setConfidence(e.target.value)} />
-            </label>
-          )}
+          <div className="form-helper">
+            Confirmed funds are counted at full value, likely funds are discounted, and speculative funds are treated as a loose scenario.
+          </div>
         </div>
 
         <div className="form-row">

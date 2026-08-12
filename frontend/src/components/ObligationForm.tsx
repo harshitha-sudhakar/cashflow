@@ -2,6 +2,7 @@ import { useState } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "../lib/firebase";
 import { useAuth } from "../lib/authContext";
+import type { CashFlowCertainty } from "../lib/types";
 
 interface ObligationFormProps {
   onLogged?: () => void;
@@ -14,6 +15,7 @@ export function ObligationForm({ onLogged }: ObligationFormProps) {
   const [dueDate, setDueDate] = useState("");
   const [recurring, setRecurring] = useState(false);
   const [priority, setPriority] = useState<"fixed" | "flexible">("fixed");
+  const [certainty, setCertainty] = useState<CashFlowCertainty>("confirmed");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,6 +35,7 @@ export function ObligationForm({ onLogged }: ObligationFormProps) {
         status: "upcoming",
         recurring,
         priority,
+        certainty,
       });
       setSubmitted(true);
       setName("");
@@ -50,9 +53,7 @@ export function ObligationForm({ onLogged }: ObligationFormProps) {
     <div className="card">
       <h2 className="card-title">Log an obligation</h2>
       <p className="card-subtitle">
-        Anything due on a specific date — a bill, a vendor payment, a subscription. Mark it{" "}
-        <strong>fixed</strong> if it has to be paid on that date no matter what, or{" "}
-        <strong>flexible</strong> if it could realistically slip.
+        Anything due on a specific date — a bill, a vendor payment, a subscription. Use certainty to tell the forecast how hard it should lean on that number.
       </p>
 
       {submitted && <div className="success-banner">Logged — check your dashboard.</div>}
@@ -82,11 +83,20 @@ export function ObligationForm({ onLogged }: ObligationFormProps) {
               <option value="flexible">Flexible</option>
             </select>
           </label>
-          <label className="form-checkbox">
-            <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
-            Recurring
+          <label className="form-label">
+            Certainty
+            <select value={certainty} onChange={(e) => setCertainty(e.target.value as CashFlowCertainty)}>
+              <option value="confirmed">Confirmed</option>
+              <option value="likely">Likely</option>
+              <option value="speculative">Speculative</option>
+            </select>
           </label>
         </div>
+
+        <label className="form-checkbox">
+          <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+          Recurring
+        </label>
 
         {error && <p className="auth-error">{error}</p>}
         <button type="submit" className="btn-primary">Log obligation</button>

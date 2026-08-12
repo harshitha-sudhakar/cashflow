@@ -1,18 +1,18 @@
-import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "./lib/authContext";
 import { LoginPage } from "./pages/LoginPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { AccountsPage } from "./pages/AccountsPage";
+import { IncomePage } from "./pages/IncomePage";
+import { ObligationsPage } from "./pages/ObligationsPage";
+import { ForecastPage } from "./pages/ForecastPage";
+import { ScratchpadPage } from "./pages/ScratchpadPage";
+import { AskPage } from "./pages/AskPage";
 import { NavBar } from "./components/NavBar";
-import { IncomeForm } from "./components/IncomeForm";
-import { ObligationForm } from "./components/ObligationForm";
 import "./index.css";
 
-type Tab = "dashboard" | "income" | "obligations";
-
-function App() {
+function AppRoutes() {
   const { user, loading } = useAuth();
-  const [tab, setTab] = useState<Tab>("dashboard");
-  const [refreshKey, setRefreshKey] = useState(0);
 
   if (loading) {
     return (
@@ -28,13 +28,28 @@ function App() {
 
   return (
     <div className="app-shell">
-      <NavBar activeTab={tab} onTabChange={setTab} />
+      <NavBar />
       <main className="app-content">
-        {tab === "dashboard" && <DashboardPage key={refreshKey} />}
-        {tab === "income" && <IncomeForm onLogged={() => setRefreshKey((k) => k + 1)} />}
-        {tab === "obligations" && <ObligationForm onLogged={() => setRefreshKey((k) => k + 1)} />}
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
+          <Route path="/income" element={<IncomePage />} />
+          <Route path="/obligations" element={<ObligationsPage />} />
+          <Route path="/forecast" element={<ForecastPage />} />
+          <Route path="/scratchpad" element={<ScratchpadPage />} />
+          <Route path="/ask" element={<AskPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   );
 }
 

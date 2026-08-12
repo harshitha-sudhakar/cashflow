@@ -1,32 +1,39 @@
+import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/authContext";
 
-interface NavBarProps {
-  activeTab: "dashboard" | "income" | "obligations";
-  onTabChange: (tab: "dashboard" | "income" | "obligations") => void;
-}
+const routes = [
+  { to: "/", label: "Overview", end: true },
+  { to: "/accounts", label: "Accounts" },
+  { to: "/income", label: "Income" },
+  { to: "/obligations", label: "Obligations" },
+  { to: "/forecast", label: "Forecast" },
+  { to: "/scratchpad", label: "Scratchpad" },
+  { to: "/ask", label: "Ask" },
+];
 
-export function NavBar({ activeTab, onTabChange }: NavBarProps) {
+export function NavBar() {
   const { user, signOut } = useAuth();
 
   return (
     <header className="navbar">
-      <div className="navbar-brand">
+      <NavLink to="/" className="navbar-brand">
         <svg viewBox="0 0 64 40" width="28" height="18" aria-hidden="true">
-          <path d="M2 30 C 16 30, 20 10, 32 10 C 44 10, 48 30, 62 30" fill="none" stroke="var(--color-primary)" strokeWidth="4" strokeLinecap="round" />
+          <path d="M2 30 C 16 30, 20 10, 32 10 C 44 10, 48 30, 62 30" fill="none" stroke="var(--color-primary-bright)" strokeWidth="4" strokeLinecap="round" />
         </svg>
         <span>Cashflow Clarity</span>
-      </div>
+      </NavLink>
 
       <nav className="navbar-tabs">
-        <button className={activeTab === "dashboard" ? "tab active" : "tab"} onClick={() => onTabChange("dashboard")}>
-          Dashboard
-        </button>
-        <button className={activeTab === "income" ? "tab active" : "tab"} onClick={() => onTabChange("income")}>
-          Log income
-        </button>
-        <button className={activeTab === "obligations" ? "tab active" : "tab"} onClick={() => onTabChange("obligations")}>
-          Log obligations
-        </button>
+        {routes.map((r) => (
+          <NavLink
+            key={r.to}
+            to={r.to}
+            end={r.end}
+            className={({ isActive }) => (isActive ? "tab active" : "tab")}
+          >
+            {r.label}
+          </NavLink>
+        ))}
       </nav>
 
       <div className="navbar-user">
