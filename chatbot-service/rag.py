@@ -65,7 +65,7 @@ def _call_llm(question: str, context: str) -> str:
         import anthropic
         client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
         message = client.messages.create(
-            model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514"),
+            model=os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5"),
             max_tokens=1024,
             system=system_prompt,
             messages=[{"role": "user", "content": user_prompt}],

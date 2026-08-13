@@ -173,6 +173,8 @@ def _compute_projection(
         for record in all_obligations:
             if record.get("dueDate", "") != day_str:
                 continue
+            if record.get("excludedFromForecast"):
+                continue
             projected_amount = _seasonal_amount(record, "dueDate", "amount", obligation_history)
             day_obligations += projected_amount
             day_obligation_uncertainty += abs(projected_amount) * (1 - _certainty_weight(record))

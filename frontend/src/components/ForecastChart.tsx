@@ -66,7 +66,7 @@ export function ForecastChart({ data, simulatedData, height = 360, comfortBuffer
               borderRadius: 8,
               color: "var(--color-ink)",
             }}
-            formatter={(value: number, name: string) => {
+            formatter={(value, name) => {
               if (name === "bandRange") return null;
               const labels: Record<string, string> = {
                 projectedBalance: "Projected",
@@ -74,7 +74,9 @@ export function ForecastChart({ data, simulatedData, height = 360, comfortBuffer
                 confidenceHigh: "High",
                 simulated: "Simulated",
               };
-              return [`$${value.toFixed(2)}`, labels[name] ?? name];
+              const numericValue = typeof value === "number" ? value : Number(value ?? 0);
+              const key = String(name);
+              return [`$${numericValue.toFixed(2)}`, labels[key] ?? key];
             }}
           />
           <ReferenceLine y={0} stroke="var(--color-amber)" strokeDasharray="4 4" />
