@@ -7,7 +7,7 @@ import { ML_SERVICE_URL } from "../lib/utils";
 import type { Forecast, ForecastPoint, HypotheticalEntry } from "../lib/types";
 import { ForecastChart } from "../components/ForecastChart";
 
-export function ScratchpadPage() {
+export function SandboxPage() {
   const { user } = useAuth();
   const { settings } = useUserSettings(user?.uid);
   const [forecast, setForecast] = useState<Forecast | null>(null);
@@ -72,7 +72,7 @@ export function ScratchpadPage() {
   return (
     <div className="page-stack scratchpad-page">
       <section className="page-hero card">
-        <p className="eyebrow">Scratchpad</p>
+        <p className="eyebrow">Sandbox</p>
         <h1 className="page-title">Test a what-if scenario</h1>
         <p className="page-description">
           Model a one-off withdrawal or windfall against your current forecast. Nothing here is saved — it's a sandbox for exploring outcomes.

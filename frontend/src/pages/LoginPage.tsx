@@ -2,7 +2,11 @@ import { useState } from "react";
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
-export function LoginPage() {
+interface LoginPageProps {
+  onBack?: () => void;
+}
+
+export function LoginPage({ onBack }: LoginPageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +39,13 @@ export function LoginPage() {
             <path d="M2 34 C 16 34, 20 18, 32 18 C 44 18, 48 34, 62 34" fill="none" stroke="var(--color-amber)" strokeWidth="2" strokeLinecap="round" opacity="0.55" />
           </svg>
         </div>
-        <h1 className="auth-title">Cashflow Clarity</h1>
+        <h1 className="auth-title">Runway</h1>
         <p className="auth-tagline">Know where you stand before the money does.</p>
+        {onBack && (
+          <button type="button" className="auth-back" onClick={onBack}>
+            ← Back
+          </button>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           <label className="auth-label">

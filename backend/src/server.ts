@@ -17,6 +17,28 @@ app.get("/health", (_req, res) => {
 const PORT = process.env.PORT ?? 4000;
 
 
+
+
+app.get("/api/nessie/snapshot", async (_req, res) => {
+  try {
+    const accountId = process.env.NESSIE_ACCOUNT_ID;
+    if (!accountId) {
+      return res.status(503).json({ error: "NESSIE_ACCOUNT_ID is not configured on the backend." });
+    }
+
+    const bills = await getBillsForAccount(accountId);
+    const patterns = await getBillPatternsForAccount(accountId);
+    res.json({
+      source: "nessie",
+      fetchedAt: new Date().toISOString(),
+      bills,
+      patterns,
+    });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
 app.get("/api/test-nessie", async (_req, res) => {
   try {
     const customers = await getAllCustomers();

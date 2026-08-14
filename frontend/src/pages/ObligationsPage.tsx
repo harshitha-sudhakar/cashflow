@@ -6,6 +6,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -13,13 +14,17 @@ import { useAuth } from "../lib/authContext";
 import type { CashFlowCertainty, Obligation } from "../lib/types";
 import { certaintyValue, computeRecurrenceWindow, computeAmountSparkline } from "../lib/utils";
 import { RecurrenceRangeBar, AmountSparkline } from "../components/RecurrenceRangeBar";
+import { BACKEND_URL } from "../lib/utils";
 
 export function ObligationsPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<Obligation[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [nessieSyncing, setNessieSyncing] = useState(false);
+  const [nessieMessage, setNessieMessage] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [amount, setAmount] = useState("");
@@ -61,6 +66,8 @@ export function ObligationsPage() {
         recurring,
         priority,
         certainty,
+        excludedFromForecast: false,
+        hidden: false,
       });
       setName("");
       setAmount("");
@@ -77,6 +84,109 @@ export function ObligationsPage() {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   }
 
+  async function toggleExclude(id: string, current: boolean) {
+    await updateField(id, "excludedFromForecast", !current);
+  }
+
+  async function toggleHidden(id: string, current: boolean) {
+    await updateField(id, "hidden", !current);
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this obligation? This can't be undone.")) return;
+    await deleteDoc(doc(db, "obligations", id));
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  async function syncFromNessie() {
+    if (!user) return;
+    setNessieSyncing(true);
+    setNessieMessage(null);
+    setError(null);
+
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/nessie/snapshot`);
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error ?? `Nessie returned ${response.status}`);
+
+      const existingBills = new Set(items.map((item) => item.nessieBillId).filter(Boolean));
+      const existingSeries = new Set(items.map((item) => item.nessieSeriesKey).filter(Boolean));
+
+      let importedHistory = 0;
+      let importedForecasts = 0;
+
+      for (const bill of payload.bills as Array<{
+        _id?: string;
+        payee: string;
+        nickname: string;
+        payment_date: string;
+        payment_amount: number;
+      }>) {
+        if (!bill._id || existingBills.has(bill._id)) continue;
+        await addDoc(collection(db, "obligations"), {
+          userId: user.uid,
+          name: bill.payee || bill.nickname || "Nessie bill",
+          amount: Number(bill.payment_amount),
+          dueDate: bill.payment_date,
+          status: "paid",
+          recurring: false,
+          priority: "fixed",
+          certainty: "confirmed",
+          hidden: true,
+          excludedFromForecast: false,
+          nessieBillId: bill._id,
+        });
+        importedHistory += 1;
+      }
+
+      const today = new Date();
+      for (const pattern of payload.patterns as Array<{
+        payee: string;
+        averageAmount: number;
+        sampleDates: string[];
+      }>) {
+        if (!pattern.payee || existingSeries.has(pattern.payee)) continue;
+
+        const latest = [...pattern.sampleDates].sort().at(-1);
+        if (!latest) continue;
+
+        const anchor = new Date(`${latest}T12:00:00`);
+        let next = new Date(anchor);
+        do {
+          next = new Date(next.getFullYear(), next.getMonth() + 1, Math.min(anchor.getDate(), 28), 12);
+        } while (next < today);
+
+        const nextDate = next.toISOString().slice(0, 10);
+        await addDoc(collection(db, "obligations"), {
+          userId: user.uid,
+          name: pattern.payee,
+          amount: Number(pattern.averageAmount),
+          dueDate: nextDate,
+          status: "upcoming",
+          recurring: true,
+          priority: "fixed",
+          certainty: "likely",
+          hidden: false,
+          excludedFromForecast: false,
+          nessieSeriesKey: pattern.payee,
+          source: "nessie",
+        });
+        importedForecasts += 1;
+      }
+
+      await loadItems();
+      setShowHidden(false);
+      setNessieMessage(
+        `Nessie synced: ${importedHistory} historical bill${importedHistory === 1 ? "" : "s"} and ${importedForecasts} forecast entr${importedForecasts === 1 ? "y" : "ies"} added.`
+      );
+    } catch (err) {
+      setNessieMessage(null);
+      setError((err as Error).message);
+    } finally {
+      setNessieSyncing(false);
+    }
+  }
+
   return (
     <div className="page-stack">
       <section className="page-hero card">
@@ -88,6 +198,22 @@ export function ObligationsPage() {
         <button className="btn-primary" onClick={() => setShowAdd(!showAdd)}>
           {showAdd ? "Cancel" : "Log new obligation"}
         </button>
+      </section>
+
+      <section className="card nessie-card">
+        <div className="card-headline-row">
+          <div>
+            <p className="eyebrow">Connected data</p>
+            <h2 className="card-title">Nessie bill history</h2>
+            <p className="card-subtitle">
+              Pull bill history from the configured Nessie account. Historical rows become pattern data, while the next recurring occurrence feeds the forecast.
+            </p>
+          </div>
+          <button className="btn-secondary btn-sm" onClick={syncFromNessie} disabled={nessieSyncing}>
+            {nessieSyncing ? "Syncing…" : "Sync Nessie"}
+          </button>
+        </div>
+        {nessieMessage && <p className="sync-message">{nessieMessage}</p>}
       </section>
 
       {groupedNames.length > 0 && (
@@ -157,17 +283,24 @@ export function ObligationsPage() {
       )}
 
       <section className="card">
-        <h2 className="card-title">All entries</h2>
+        <div className="card-headline-row">
+          <h2 className="card-title">All entries</h2>
+          {items.some((i) => i.hidden) && (
+            <button className="btn-ghost btn-sm" onClick={() => setShowHidden(!showHidden)}>
+              {showHidden ? "Hide hidden entries" : `Show ${items.filter((i) => i.hidden).length} hidden`}
+            </button>
+          )}
+        </div>
         {loading ? (
           <p className="card-subtitle">Loading...</p>
-        ) : items.length === 0 ? (
+        ) : items.filter((i) => showHidden || !i.hidden).length === 0 ? (
           <p className="card-subtitle">Nothing logged yet.</p>
         ) : (
           <ul className="editable-list">
-            {items.map((item) => {
+            {items.filter((i) => showHidden || !i.hidden).map((item) => {
               const window = computeRecurrenceWindow(items, item.name);
               return (
-                <li key={item.id} className="editable-row">
+                <li key={item.id} className={`editable-row ${item.excludedFromForecast ? "row-excluded" : ""}`}>
                   <div className="editable-fields">
                     <label className="inline-field inline-field-wide">
                       <span className="field-label">Name</span>
@@ -210,6 +343,26 @@ export function ObligationsPage() {
                         <option value="speculative">Speculative</option>
                       </select>
                     </label>
+                  </div>
+                  <div className="editable-actions">
+                    <div className="editable-actions-left">
+                      <label className="toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={!!item.excludedFromForecast}
+                          onChange={() => toggleExclude(item.id!, !!item.excludedFromForecast)}
+                        />
+                        Exclude from forecast
+                      </label>
+                    </div>
+                    <div className="editable-actions-right">
+                      <button className="btn-ghost btn-sm" onClick={() => toggleHidden(item.id!, !!item.hidden)}>
+                        {item.hidden ? "Unhide" : "Hide"}
+                      </button>
+                      <button className="btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id!)}>
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 </li>
               );

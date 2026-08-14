@@ -9,7 +9,7 @@ export interface Account {
 }
 
 export interface UserSettings {
-  forecastHorizonDays: 14 | 30 | 60 | 90;
+  forecastHorizonDays: 30 | 60 | 90;
   comfortBuffer: number;
 }
 
@@ -24,6 +24,9 @@ export interface IncomeEvent {
   category: "gig" | "sponsorship" | "freelance" | "salary" | "other";
   certainty?: CashFlowCertainty;
   excludedFromForecast?: boolean;
+  recurring?: boolean;
+  hidden?: boolean;
+  previousCertainty?: CashFlowCertainty;
 }
 
 export interface Obligation {
@@ -36,6 +39,10 @@ export interface Obligation {
   recurring: boolean;
   priority: "fixed" | "flexible";
   certainty?: CashFlowCertainty;
+  excludedFromForecast?: boolean;
+  hidden?: boolean;
+  nessieBillId?: string;
+  nessieSeriesKey?: string;
 }
 
 export interface ForecastPoint {
@@ -50,6 +57,14 @@ export interface Shortfall {
   shortfallAmount: number;
 }
 
+export interface ForecastDiagnostics {
+  totalIncomeRecords: number;
+  totalObligationRecords: number;
+  expandedIncomeOccurrences: number;
+  expandedObligationOccurrences: number;
+  activeDaysInHorizon: number;
+}
+
 export interface Forecast {
   userId: string;
   generatedAt: string;
@@ -57,6 +72,7 @@ export interface Forecast {
   startingBalance?: number;
   dailyProjection: ForecastPoint[];
   shortfallDates: Shortfall[];
+  diagnostics?: ForecastDiagnostics;
 }
 
 export interface HypotheticalEntry {

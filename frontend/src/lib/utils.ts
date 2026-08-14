@@ -1,6 +1,7 @@
 import type { IncomeEvent, Obligation } from "./types";
 
 export const ML_SERVICE_URL = "http://localhost:5001";
+export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL ?? "http://localhost:4000";
 export const CHAT_SERVICE_URL = "http://localhost:5002";
 
 export const certaintyWeights = {

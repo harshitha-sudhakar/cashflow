@@ -133,6 +133,54 @@ def get_seasonal_aggregates(user_id: str) -> dict:
     return aggregates
 
 
+def _expand_recurring(records: list, date_field: str, horizon_days: int, interval: str) -> list:
+    """
+    A record with recurring=True only ever has ONE stored date. Without this,
+    the forecast only ever counts it once and the rest of the horizon is flat.
+    This generates the future occurrences within the horizon so recurring
+    income/obligations actually show up on every date they'd realistically land.
+
+    interval="monthly" -> same day-of-month, used for obligations (bills, rent)
+    interval="weekly"  -> same day-of-week, used for income (e.g. "every weekend" gig work)
+    """
+    today = dt.date.today()
+    horizon_end = today + dt.timedelta(days=horizon_days)
+    expanded = []
+
+    for record in records:
+        expanded.append(record)
+        if not record.get("recurring"):
+            continue
+        if date_field not in record:
+            continue
+        try:
+            anchor_date = dt.date.fromisoformat(record[date_field])
+        except ValueError:
+            continue
+
+        occurrence = anchor_date
+        while True:
+            if interval == "monthly":
+                month = occurrence.month + 1
+                year = occurrence.year + (month - 1) // 12
+                month = (month - 1) % 12 + 1
+                day = min(anchor_date.day, 28)  # avoid month-length edge cases
+                occurrence = dt.date(year, month, day)
+            else:
+                occurrence = occurrence + dt.timedelta(days=7)
+
+            if occurrence > horizon_end:
+                break
+            if occurrence < today:
+                continue
+
+            clone = dict(record)
+            clone[date_field] = occurrence.isoformat()
+            expanded.append(clone)
+
+    return expanded
+
+
 def _compute_projection(
     income: list,
     obligations: list,
@@ -142,14 +190,17 @@ def _compute_projection(
     extra_obligations: list | None = None,
 ):
     today = dt.date.today()
-    all_income = income + (extra_income or [])
-    all_obligations = obligations + (extra_obligations or [])
+    expanded_income = _expand_recurring(income, "expectedDate", horizon_days, interval="weekly")
+    expanded_obligations = _expand_recurring(obligations, "dueDate", horizon_days, interval="monthly")
+    all_income = expanded_income + (extra_income or [])
+    all_obligations = expanded_obligations + (extra_obligations or [])
     income_history = _build_history(income, "expectedDate", "amount")
     obligation_history = _build_history(obligations, "dueDate", "amount")
 
     running_balance = starting_balance
     daily_projection = []
     shortfalls = []
+    active_days = 0
 
     for i in range(horizon_days):
         day = today + dt.timedelta(days=i)
@@ -180,6 +231,9 @@ def _compute_projection(
             day_obligation_uncertainty += abs(projected_amount) * (1 - _certainty_weight(record))
             day_obligation_uncertainty += _seasonal_spread(record, "dueDate", obligation_history)
 
+        if day_income != 0 or day_obligations != 0:
+            active_days += 1
+
         running_balance += day_income - day_obligations
         uncertainty = max(
             0.1 * abs(running_balance),
@@ -200,7 +254,15 @@ def _compute_projection(
                 "contributingObligations": [],
             })
 
-    return daily_projection, shortfalls
+    diagnostics = {
+        "totalIncomeRecords": len(income),
+        "totalObligationRecords": len(obligations),
+        "expandedIncomeOccurrences": len(all_income),
+        "expandedObligationOccurrences": len(all_obligations),
+        "activeDaysInHorizon": active_days,
+    }
+
+    return daily_projection, shortfalls, diagnostics
 
 
 def project_balance(user_id: str, horizon_days: int = 30):
@@ -208,7 +270,7 @@ def project_balance(user_id: str, horizon_days: int = 30):
     obligations = load_obligations(user_id)
     starting_balance = load_accounts_balance(user_id)
 
-    daily_projection, shortfalls = _compute_projection(
+    daily_projection, shortfalls, diagnostics = _compute_projection(
         income, obligations, starting_balance, horizon_days
     )
 
@@ -219,6 +281,7 @@ def project_balance(user_id: str, horizon_days: int = 30):
         "startingBalance": starting_balance,
         "dailyProjection": daily_projection,
         "shortfallDates": shortfalls,
+        "diagnostics": diagnostics,
     }
 
     db.collection("forecasts").document(user_id).set(forecast)
@@ -255,7 +318,7 @@ def simulate_projection(user_id: str, hypothetical: dict, horizon_days: int = 30
             "certainty": "confirmed",
         })
 
-    daily_projection, shortfalls = _compute_projection(
+    daily_projection, shortfalls, diagnostics = _compute_projection(
         income, obligations, starting_balance, horizon_days,
         extra_income=extra_income, extra_obligations=extra_obligations,
     )
@@ -265,6 +328,7 @@ def simulate_projection(user_id: str, hypothetical: dict, horizon_days: int = 30
         "startingBalance": starting_balance,
         "dailyProjection": daily_projection,
         "shortfallDates": shortfalls,
+        "diagnostics": diagnostics,
     }
 
 
@@ -280,5 +344,12 @@ if __name__ == "__main__":
     result = project_balance(user_id, horizon_days=horizon)
     print(f"Generated forecast for {user_id} with {len(result['shortfallDates'])} shortfall day(s)")
     print(f"Starting balance from accounts: ${result['startingBalance']:.2f}")
+    d = result["diagnostics"]
+    print(f"Income records logged: {d['totalIncomeRecords']} (expanded to {d['expandedIncomeOccurrences']} occurrences with recurrence)")
+    print(f"Obligation records logged: {d['totalObligationRecords']} (expanded to {d['expandedObligationOccurrences']} occurrences with recurrence)")
+    print(f"Days within the {horizon}-day horizon with any activity: {d['activeDaysInHorizon']}")
+    if d["activeDaysInHorizon"] == 0:
+        print("^ This is why the chart is flat: none of your logged dates fall within the forecast window.")
+        print("  Check that your income/obligation dates are today or in the future, not in the past.")
     for s in result["shortfallDates"]:
         print(f"  {s['date']}: short by ~${s['shortfallAmount']:.2f}")

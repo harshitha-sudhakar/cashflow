@@ -6,6 +6,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   doc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
@@ -18,6 +19,7 @@ export function IncomePage() {
   const [items, setItems] = useState<IncomeEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [source, setSource] = useState("");
@@ -25,6 +27,7 @@ export function IncomePage() {
   const [certainty, setCertainty] = useState<CashFlowCertainty>("confirmed");
   const [expectedDate, setExpectedDate] = useState("");
   const [category, setCategory] = useState("gig");
+  const [recurring, setRecurring] = useState(false);
 
   async function loadItems() {
     if (!user) return;
@@ -54,11 +57,14 @@ export function IncomePage() {
         confidence: certainty === "confirmed" ? 1 : certainty === "likely" ? 0.7 : 0.35,
         expectedDate,
         category,
+        recurring,
         excludedFromForecast: false,
+        hidden: false,
       });
       setSource("");
       setAmount("");
       setExpectedDate("");
+      setRecurring(false);
       setShowAdd(false);
       await loadItems();
     } catch (err) {
@@ -72,15 +78,36 @@ export function IncomePage() {
   }
 
   async function markReceived(id: string) {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    const prior = certaintyValue(item);
     await updateDoc(doc(db, "incomeEvents", id), {
       status: "confirmed",
       certainty: "confirmed",
       confidence: 1,
+      previousCertainty: prior === "confirmed" ? "likely" : prior,
     });
     setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, status: "confirmed", certainty: "confirmed", confidence: 1 } : item,
+      prev.map((i) =>
+        i.id === id
+          ? { ...i, status: "confirmed", certainty: "confirmed", confidence: 1, previousCertainty: prior === "confirmed" ? "likely" : prior }
+          : i,
       ),
+    );
+  }
+
+  async function unmarkReceived(id: string) {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    const restore = item.previousCertainty ?? "likely";
+    const confidence = restore === "confirmed" ? 1 : restore === "likely" ? 0.7 : 0.35;
+    await updateDoc(doc(db, "incomeEvents", id), {
+      status: restore,
+      certainty: restore,
+      confidence,
+    });
+    setItems((prev) =>
+      prev.map((i) => (i.id === id ? { ...i, status: restore, certainty: restore, confidence } : i)),
     );
   }
 
@@ -88,13 +115,27 @@ export function IncomePage() {
     await updateField(id, "excludedFromForecast", !current);
   }
 
+  async function toggleHidden(id: string, current: boolean) {
+    await updateField(id, "hidden", !current);
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this income entry? This can't be undone.")) return;
+    await deleteDoc(doc(db, "incomeEvents", id));
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  const visibleItems = items.filter((item) => showHidden || !item.hidden);
+  const hiddenCount = items.filter((item) => item.hidden).length;
+
   return (
     <div className="page-stack">
       <section className="page-hero card">
         <p className="eyebrow">Income</p>
-        <h1 className="page-title">Logged income</h1>
+        <h1 className="page-title">Expected income</h1>
         <p className="page-description">
-          Track expected and received cash. Edit any row inline, mark items as received, or exclude sources from the forecast for what-if filtering.
+          Track expected and received cash. Edit any row inline, mark items as received, or exclude
+          sources from the forecast for what-if filtering.
         </p>
         <button className="btn-primary" onClick={() => setShowAdd(!showAdd)}>
           {showAdd ? "Cancel" : "Log new income"}
@@ -139,6 +180,10 @@ export function IncomePage() {
                 </select>
               </label>
             </div>
+            <label className="form-checkbox">
+              <input type="checkbox" checked={recurring} onChange={(e) => setRecurring(e.target.checked)} />
+              Recurring (repeats weekly, e.g. every weekend)
+            </label>
             {error && <p className="auth-error">{error}</p>}
             <button type="submit" className="btn-primary">Save entry</button>
           </form>
@@ -146,14 +191,21 @@ export function IncomePage() {
       )}
 
       <section className="card">
-        <h2 className="card-title">All entries</h2>
+        <div className="card-headline-row">
+          <h2 className="card-title">All entries</h2>
+          {hiddenCount > 0 && (
+            <button className="btn-ghost btn-sm" onClick={() => setShowHidden(!showHidden)}>
+              {showHidden ? "Hide hidden entries" : `Show ${hiddenCount} hidden`}
+            </button>
+          )}
+        </div>
         {loading ? (
           <p className="card-subtitle">Loading...</p>
-        ) : items.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <p className="card-subtitle">Nothing logged yet.</p>
         ) : (
           <ul className="editable-list">
-            {items.map((item) => (
+            {visibleItems.map((item) => (
               <li key={item.id} className={`editable-row ${item.excludedFromForecast ? "row-excluded" : ""}`}>
                 <div className="editable-fields">
                   <label className="inline-field">
@@ -201,19 +253,33 @@ export function IncomePage() {
                   </label>
                 </div>
                 <div className="editable-actions">
-                  {certaintyValue(item) !== "confirmed" && (
-                    <button className="btn-ghost btn-sm" onClick={() => markReceived(item.id!)}>
-                      Mark as received
+                  <div className="editable-actions-left">
+                    {certaintyValue(item) !== "confirmed" ? (
+                      <button className="btn-ghost btn-sm" onClick={() => markReceived(item.id!)}>
+                        Mark as received
+                      </button>
+                    ) : (
+                      <button className="btn-ghost btn-sm" onClick={() => unmarkReceived(item.id!)}>
+                        Unmark as received
+                      </button>
+                    )}
+                    <label className="toggle-label">
+                      <input
+                        type="checkbox"
+                        checked={!!item.excludedFromForecast}
+                        onChange={() => toggleExclude(item.id!, !!item.excludedFromForecast)}
+                      />
+                      Exclude from forecast
+                    </label>
+                  </div>
+                  <div className="editable-actions-right">
+                    <button className="btn-ghost btn-sm" onClick={() => toggleHidden(item.id!, !!item.hidden)}>
+                      {item.hidden ? "Unhide" : "Hide"}
                     </button>
-                  )}
-                  <label className="toggle-label">
-                    <input
-                      type="checkbox"
-                      checked={!!item.excludedFromForecast}
-                      onChange={() => toggleExclude(item.id!, !!item.excludedFromForecast)}
-                    />
-                    Exclude from forecast
-                  </label>
+                    <button className="btn-ghost btn-sm btn-danger" onClick={() => handleDelete(item.id!)}>
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}

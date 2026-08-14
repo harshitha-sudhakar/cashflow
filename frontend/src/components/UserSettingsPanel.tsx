@@ -20,7 +20,6 @@ export function UserSettingsPanel({ settings, onUpdate }: UserSettingsPanelProps
               onUpdate({ forecastHorizonDays: Number(e.target.value) as UserSettings["forecastHorizonDays"] })
             }
           >
-            <option value={14}>14 days</option>
             <option value={30}>30 days</option>
             <option value={60}>60 days</option>
             <option value={90}>90 days</option>
@@ -39,7 +38,7 @@ export function UserSettingsPanel({ settings, onUpdate }: UserSettingsPanelProps
         </label>
       </div>
       <p className="form-helper">
-        Safe-to-spend subtracts your comfort buffer from the projected balance. The forecast horizon controls how many days the projection covers.
+        The comfort buffer shows as a reference line on your forecast chart. The forecast horizon controls how many days the projection covers.
       </p>
     </div>
   );
