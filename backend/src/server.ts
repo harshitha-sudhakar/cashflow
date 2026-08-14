@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config"
-import { getAllCustomers, createCustomer, createAccount, createBill, getBillsForAccount} from "./services/nessieService.js";
+import { getAllCustomers, createCustomer, createAccount, createBill, getBillsForAccount, getBillPatternsForAccount } from "./services/nessieService.js";
 import {db} from "./config/firebase.js";
 
 
@@ -16,6 +16,28 @@ app.get("/health", (_req, res) => {
 
 const PORT = process.env.PORT ?? 4000;
 
+
+
+
+app.get("/api/nessie/snapshot", async (_req, res) => {
+  try {
+    const accountId = process.env.NESSIE_ACCOUNT_ID;
+    if (!accountId) {
+      return res.status(503).json({ error: "NESSIE_ACCOUNT_ID is not configured on the backend." });
+    }
+
+    const bills = await getBillsForAccount(accountId);
+    const patterns = await getBillPatternsForAccount(accountId);
+    res.json({
+      source: "nessie",
+      fetchedAt: new Date().toISOString(),
+      bills,
+      patterns,
+    });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
 
 app.get("/api/test-nessie", async (_req, res) => {
   try {
@@ -92,6 +114,15 @@ app.get("/api/test-nessie/bills/:accountId", async (req, res) => {
   try {
     const bills = await getBillsForAccount(req.params.accountId);
     res.json(bills);
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+app.get("/api/test-nessie/patterns/:accountId", async (req, res) => {
+  try {
+    const patterns = await getBillPatternsForAccount(req.params.accountId, req.query.payee as string | undefined);
+    res.json(patterns);
   } catch (err) {
     res.status(500).json({ error: (err as Error).message });
   }

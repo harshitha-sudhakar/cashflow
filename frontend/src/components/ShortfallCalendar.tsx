@@ -13,15 +13,36 @@ export function ShortfallCalendar({ forecast, loading }: ShortfallCalendarProps)
   if (!forecast) {
     return (
       <div className="card empty-state">
-        <h2 className="card-title">No forecast yet</h2>
-        <p>Log some income and obligations, then run the forecast to see your shortfall risk.</p>
+        <h2 className="card-title">Forecast preview</h2>
+        <p>Log income and obligations to generate the runway view.</p>
       </div>
     );
   }
 
   return (
     <div className="card">
-      <h2 className="card-title">Next {forecast.horizonDays} days</h2>
+      <div className="card-headline-row">
+        <div>
+          <h2 className="card-title">Runway</h2>
+          <p className="card-subtitle">A 90-day view of projected balance and shortfall risk.</p>
+        </div>
+        <span className="card-pill">{forecast.horizonDays} days</span>
+      </div>
+
+      <div className="forecast-stats">
+        <div>
+          <span>Risk days</span>
+          <strong>{forecast.shortfallDates.length}</strong>
+        </div>
+        <div>
+          <span>Lowest low</span>
+          <strong>${Math.min(...forecast.dailyProjection.map((p) => p.confidenceLow)).toFixed(2)}</strong>
+        </div>
+        <div>
+          <span>End balance</span>
+          <strong>${forecast.dailyProjection[forecast.dailyProjection.length - 1]?.projectedBalance.toFixed(2) ?? "0.00"}</strong>
+        </div>
+      </div>
 
       {forecast.shortfallDates.length === 0 ? (
         <p className="shortfall-clear">No shortfall risk detected in this window.</p>
@@ -38,6 +59,7 @@ export function ShortfallCalendar({ forecast, loading }: ShortfallCalendarProps)
 
       <details className="projection-details">
         <summary>Daily projection</summary>
+        <p className="projection-note">Balance range widens when income or obligations are less certain.</p>
         <ul className="projection-list">
           {forecast.dailyProjection.map((p) => (
             <li key={p.date}>
