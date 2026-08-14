@@ -60,20 +60,20 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
         </h1>
         <p className="landing-subhead">
           Runway is a forecasting tool built for income that isn't steady — gig work, freelance,
-          sponsorships. Log what you know, mark how sure you are, and see a real range for what's ahead
-          instead of a single number that's quietly guessing.
+          sponsorships. Log your expected income, mark your level of certainty, and see a real range for what's ahead
+          instead guessing. 
         </p>
         <div className="landing-cta-row">
-          <button className="btn-primary btn-lg" onClick={onGetStarted}>Get started — it's free</button>
+          <button className="btn-primary btn-lg" onClick={onGetStarted}>Get Started</button>
         </div>
       </section>
 
       <section className="landing-section">
         <p className="eyebrow">The problem</p>
-        <h2 className="landing-section-title">Most budgeting tools assume a paycheck that lands the same day, every two weeks.</h2>
+        <h2 className="landing-section-title">Most budgeting tools assume a paycheck that lands on a consistent basis.</h2>
         <p className="landing-section-body">
-          If your income is irregular — gig payouts, freelance invoices, sponsorships that might or might
-          not come through — that assumption breaks immediately. Runway treats uncertainty as the default,
+          If your income is irregular - gig payouts, freelance invoices, sponsorships that aren't confirmed 
+          - that assumption breaks immediately. Runway treats uncertainty as the default,
           not an edge case.
         </p>
       </section>
@@ -107,7 +107,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
 
       <section className="landing-cta-band">
         <h2>Stop finding out you're short the day it happens.</h2>
-        <button className="btn-primary btn-lg" onClick={onGetStarted}>Get started — it's free</button>
+        <button className="btn-primary btn-lg" onClick={onGetStarted}>Get Started</button>
       </section>
 
       <footer className="landing-footer">

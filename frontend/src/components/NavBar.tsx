@@ -17,7 +17,7 @@ export function NavBar() {
           />
         </svg>
 
-        <span>Cashflow Clarity</span>
+        <span>Runway</span>
       </div>
 
       <nav className="navbar-tabs">
